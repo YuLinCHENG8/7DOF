@@ -102,8 +102,8 @@ void compareTransforms(const double T1[4][4], const double T2[4][4]) {
     
     // 杈撳嚭瀵规瘮缁撴灉
     std::cout << std::fixed << std::setprecision(6);
-    std::cout << "浣嶇疆璇樊 (Position error): " << position_error << " units\n";
-    std::cout << "濮挎€佽宸?(Orientation error): " << angle_error_rad << " rad ("
+    std::cout << "(Position error): " << position_error << " units\n";
+    std::cout << "(Orientation error): " << angle_error_rad << " rad ("
               << angle_error_deg << " deg)\n";
 }
 
@@ -153,7 +153,7 @@ double arm_plane_angle_test(const double q[7]) {
     Eigen::Vector3d l_0_bs(0,0,dh[0][2]);
     Eigen::Vector3d l_7_wt(0,0,sqrt(pow(dh[6][2],2) + pow(dh[5][2],2)));
     x_0_sw = P_0_desire - l_0_bs - R_0_desire *l_7_wt;
-    printf("x_0_sw鐨勪綅缃负: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
+    printf("x_0_sw的位置为: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
     
     double norm_x_0_sw = x_0_sw.norm();
     if (norm_x_0_sw > 1e-12) {
@@ -196,7 +196,7 @@ void analytical_ik_test(const double T_target[4][4]/* , const double q_init[7], 
     Eigen::Vector3d l_0_bs(0,0,dh[0][2]);
     Eigen::Vector3d l_7_wt(0,0,sqrt(pow(dh[6][2],2) + pow(dh[5][2],2)));
     x_0_sw = P_0_desire - l_0_bs - R_0_desire *l_7_wt;
-    printf("x_0_sw鐨勪綅缃负: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
+    printf("x_0_sw的位置为: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
     
     double norm_x_0_sw = x_0_sw.norm();
     if (norm_x_0_sw > 1e-12) {
@@ -211,7 +211,7 @@ void analytical_ik_test(const double T_target[4][4]/* , const double q_init[7], 
     if (cos_theta4 < -1.0) cos_theta4 = -1.0;
     if (cos_theta4 > 1.0) cos_theta4 = 1.0;
     double theta_4 = -std::acos(cos_theta4);
-    printf("------------绗洓涓叧鑺傝搴︿负锛?f \n",theta_4*180/M_PI);
+    printf("------------第四个关节角度为：%f \n",theta_4*180/M_PI);
 
     //閫氳繃缃楀痉閲屾牸鏂彉鎹㈡眰鍑篟_0_3锛岃繘鑰屾眰鍑?theta0 - theta3
     Eigen::Matrix3d I3 = Eigen::Matrix3d::Identity();
@@ -258,7 +258,7 @@ void analytical_ik_test(const double T_target[4][4]/* , const double q_init[7], 
         theta_5[i] = std::atan2(r23/sin(theta_6[i]), r13/sin(theta_6[i]));
 
         theta_7[i] = std::atan2(r32/sin(theta_6[i]), -r31/sin(theta_6[i]));
-        printf("绗?%d 缁勮В鐨則heta_1涓?%f, theta_2涓?%f, theta_3涓?%f,theta_4涓?%f, theta_5涓?%f, theta_6涓?%f , theta_7涓?%f\n",
+        printf("第 %d 组解的theta_1为:%f, theta_2为:%f, theta_3为:%f,theta_4为:%f, theta_5为:%f, theta_6为:%f , theta_7为:%f\n",
             i+1 ,theta_1[i]*180/M_PI, theta_2[i]*180/M_PI, theta_3[i]*180/M_PI,theta_4*180/M_PI,
             theta_5[i]*180/M_PI, theta_6[i]*180/M_PI, theta_7[i]*180/M_PI);
 
@@ -488,20 +488,20 @@ sigualrity_type check_near_singularity(double q_init[7], Eigen::Vector3d x_0_sw)
 
 
 void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , const double q_init[7], double psi */, double q_out[7]){
-    double arm_angle = 37.904784*M_PI/180;
+    double arm_angle = 0.597493;
 
     Eigen::Matrix3d R_0_desire;
     Eigen::Vector3d P_0_desire;
-    //鑾峰彇base涓嬬殑SW鍧愭爣,鍙婂叾鍗曚綅鍚戦噺
-    Eigen::Vector3d x_0_sw; // 鍦?base frame涓?鑾峰彇sw鍚戦噺
-    Eigen::Vector3d u_0_sw;//x_sw_0 鐨勫崟浣嶅悜閲?
+    //获取base下的SW坐标,及其单位向量
+    Eigen::Vector3d x_0_sw; // 在 base frame中 获取sw向量
+    Eigen::Vector3d u_0_sw;//x_sw_0 的单位向量
 
-    getPoseFromArray(T_target,R_0_desire,P_0_desire);//鑾峰彇鐩爣浣嶅Э鐨刾osi rot
+    getPoseFromArray(T_target,R_0_desire,P_0_desire);//获取目标位姿的posi rot
     Eigen::Vector3d l_0_bs(0,0,dh[0][2]);
     Eigen::Vector3d l_7_wt(0,0,sqrt(pow(dh[6][2],2) + pow(dh[5][2],2)));
     x_0_sw = P_0_desire - l_0_bs - R_0_desire *l_7_wt;
 
-    printf("x_0_sw鐨勪綅缃负: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
+    printf("x_0_sw的位置为: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
     
     double norm_x_0_sw = x_0_sw.norm();
     if (norm_x_0_sw > 1e-12) {
@@ -510,20 +510,20 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         u_0_sw.setZero();  
     }
 
-    //==============瑙?theta 4=========== checked
+    //==============解 theta 4=========== checked
     double cos_theta4 = (pow(norm_x_0_sw,2) - pow(dh[2][2],2) - pow(dh[4][2],2)) / ( 2* dh[2][2] * dh[4][2]);
     
     if (cos_theta4 < -1.0) cos_theta4 = -1.0;
     if (cos_theta4 > 1.0) cos_theta4 = 1.0;
     double theta_4 = -std::acos(cos_theta4);
-    printf("------------绗洓涓叧鑺傝搴︿负锛?f \n",theta_4*180/M_PI);
-    q_out[3] = - theta_4 * 180.0 / M_PI;//璐熷彿涓簅ffset
+    printf("------------第四个关节角度为：%f \n",theta_4*180/M_PI);
+    q_out[3] = - theta_4 * 180.0 / M_PI;//负号为offset
 
-    // ===== 鏋勯€?R_3_4 (theta_4 宸叉眰鍑猴紝鎻愬埌鍓嶉潰渚涘悗闈㈠鐢? =====
+    // ===== 构造 R_3_4 (theta_4 已求出，提到前面供后面复用) =====
     double c4 = std::cos(theta_4);
     double s4 = std::sin(theta_4);
 
-    //鏆傛椂涓嶄娇鐢╢k璁＄畻锛堝潗鏍囩郴涓嶄竴鏍凤級锛岀敱浜?j4鏄粫鐫€ base frame 鐨?-y杞存棆杞殑锛屾寜鐓ф棆杞负锛?
+    //暂时不使用fk计算（坐标系不一样），由于 j4是绕着 base frame 的 -y轴旋转的，按照旋转为：
     Eigen::Matrix3d R_3_4;
     R_3_4 <<  c4, 0.0, -s4,
             0.0, 1.0, 0.0,
@@ -535,7 +535,7 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         while (angle < -M_PI) angle += 2.0 * M_PI;
         return angle;
     };
-    //绗?涓酱鏄粫base frame 鐨?z
+    //第1个轴是绕base frame 的 z
     auto Rz = [](double theta) {
         double c = std::cos(theta);
         double s = std::sin(theta);
@@ -545,7 +545,7 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
              0.0, 0.0, 1.0;
         return R;
     };
-    //绗簩涓酱鏄粫base frame 鐨?-y
+    //第二个轴是绕base frame 的 -y
     auto Ry_neg = [](double theta) {
         double c = std::cos(theta);
         double s = std::sin(theta);
@@ -557,13 +557,13 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
     };
     const double eps = 1e-9;
 
-    //姹傚綋鑷傝涓?鏃跺€欑殑theta_1_ref plane 鍜宼heta_1_ref plane 瀵瑰簲鍏紡 14
+    //求当臂角为0时候的theta_1_ref plane 和theta_1_ref plane 对应公式 14
     double theta_1_ref = 0.0;
     double theta_2_ref = 0.0;
 
-    // ================= 姹?theta_1_ref, theta_2_ref =================
+    // ================= 求 theta_1_ref, theta_2_ref =================
     //
-    // 鐩爣褰㈠紡锛?
+    // 目标形式：
     // x_0_sw = Rz(theta_1_ref) * Ry(-theta_2_ref) * p
     //
     // p = R_2_3(theta3 = 0) * (l_3_se + R_3_4(theta4) * l_4_ew)
@@ -571,14 +571,14 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
     Eigen::Vector3d l_3_se(0.0, 0.0, dh[2][2]);
     Eigen::Vector3d l_4_ew(0.0, 0.0, dh[4][2]);
 
-    // 宸茬煡鍚戦噺 p
+    // 已知向量 p
     Eigen::Vector3d p = R_2_3_theta3_zero * (l_3_se + R_3_4 * l_4_ew);
 
-    // 鐜板湪瑙ｏ細x_0_sw = Rz(theta_1_ref) * Ry(-theta_2_ref) * p
-    // [ c1路c2,  -s1,  -c1路s2 ]                                   
-    // [ s1路c2,   c1,  -s1路s2 ]                                   
+    // 现在解：x_0_sw = Rz(theta_1_ref) * Ry(-theta_2_ref) * p
+    // [ c1·c2,  -s1,  -c1·s2 ]                                   
+    // [ s1·c2,   c1,  -s1·s2 ]                                   
     // [ s2,       0,     c2   ]   
-    //鏈変袱涓湭鐭ユ暟锛?缁勬柟绋嬨€傜洿鎺ヨВ鑰︽眰瑙?
+    //有两个未知数，3组方程。直接解耦求解
 
     const double eps_1 = 1e-12;
 
@@ -593,7 +593,7 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
     const double r = std::sqrt(px * px + pz * pz);
 
     if (r < eps_1) {
-        printf("姹?theta_2_ref 澶辫触锛歱 鍦?y 杞撮檮杩戯紝鍑虹幇濂囧紓銆俓n");
+        printf("求 theta_2_ref 失败：p 在 y 轴附近，出现奇异。\n");
     } else {
         double cos_arg = z / r;
 
@@ -635,7 +635,7 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         theta_1_candidate_2 = normalizeAngle(theta_1_candidate_2);
         theta_2_candidate_2 = normalizeAngle(theta_2_candidate_2);
 
-        // 鐢ㄦ杩愬姩瀛︽畫宸€変竴涓洿鍖归厤鐨勮В
+        // 用正运动学残差选一个更匹配的解
         Eigen::Vector3d x_check_1 =
             Rz(theta_1_candidate_1) * Ry_neg(theta_2_candidate_1) * p;
 
@@ -666,38 +666,38 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         printf("selected theta_1_ref: %f deg\n", theta_1_ref * 180.0 / M_PI);
         printf("selected theta_2_ref: %f deg\n", theta_2_ref * 180.0 / M_PI);
     }
-    // ================= 鏍规嵁 arm_angle 姹?theta_1, theta_2, theta_3 =================
+    // ================= 根据 arm_angle 求 theta_1, theta_2, theta_3 =================
     //
-    // 杩欓噷鍋囪鑲╅儴鍓嶄笁涓棆杞负锛?
+    // 这里假设肩部前三个旋转为：
     // R_0_1 = Rz(theta_1)
     // R_1_2 = Ry(-theta_2)
     // R_2_3 = Rz(theta_3)
     //
-    // 鎵€浠ワ細
+    // 所以：
     // R_0_3 = Rz(theta_1) * Ry(-theta_2) * Rz(theta_3)
 
     double theta_1 = 0.0;
     double theta_2 = 0.0;
     double theta_3 = 0.0;
 
-    // 1. 鍏堟瀯閫?arm_angle = 0 鏃剁殑鍙傝€?R_0_3_ref
+    // 1. 先构造 arm_angle = 0 时的参考 R_0_3_ref
     // theta_3_ref = 0
     Eigen::Matrix3d R_0_3_ref =
         Rz(theta_1_ref) * Ry_neg(theta_2_ref) * Rz(0.0);
 
-    // 2. 鏋勯€?[u_0_sw x] 鍙嶅绉扮煩闃?
+    // 2. 构造 [u_0_sw x] 反对称矩阵
     Eigen::Matrix3d u_cross;
     u_cross << 0.0,        -u_0_sw(2),  u_0_sw(1),
             u_0_sw(2),   0.0,       -u_0_sw(0),
             -u_0_sw(1),   u_0_sw(0),  0.0;
 
-    // 3. 鏍规嵁璁烘枃鍏紡鏋勯€?A_s, B_s, C_s
+    // 3. 根据论文公式构造 A_s, B_s, C_s
     Eigen::Matrix3d A_s = u_cross * R_0_3_ref;
     Eigen::Matrix3d B_s = -u_cross * u_cross * R_0_3_ref;
     Eigen::Matrix3d C_s = (u_0_sw * u_0_sw.transpose()) * R_0_3_ref;
 
     {
-        //---------------------姹?theta1鐨勫彲琛岃寖鍥?--------------------
+        //---------------------求 theta1的可行范围---------------------
         double A_n_1 = -A_s(1,1);
         double B_n_1 = -B_s(1,1);
         double C_n_1 = -C_s(1,1);
@@ -705,15 +705,15 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         double B_d_1 = -B_s(0,1);
         double C_d_1 = -C_s(0,1);
 
-        // 璁＄畻 a_t, b_t, c_t锛堝叕寮?7锛?
+        // 计算 a_t, b_t, c_t（公式27）
         double a_t1 = B_d_1 * C_n_1 - B_n_1 * C_d_1;
         double b_t1 = A_n_1 * C_d_1 - A_d_1 * C_n_1;
         double c_t1 = A_n_1 * B_d_1 - A_d_1 * B_n_1;
 
-        // 鍒ゅ埆寮?
+        // 判别式
         double Delta1 = a_t1*a_t1 + b_t1*b_t1 - c_t1*c_t1;
 
-        //纭theta1涓哄崟璋冿紝鎸夌収鍏宠妭鑼冨洿瀵瑰簲鏈€澶ф渶灏?
+        //确认theta1为单调，按照关节范围对应最大最小
         double theta_min_1 = -175.0 * M_PI / 180.0;
         double theta_max_1 =  175.0 * M_PI / 180.0;
 
@@ -727,38 +727,38 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         );
 
         if (Delta1 > 0.0 && success_1) {
-            // 寰幆鍨嬶紙鍥?a锛?
-            printf("-------------theta1涓哄惊鐜瀷\n");
+            // 循环型（图3a）
+            printf("-------------theta1为循环型\n");
 
         } else if (Delta1 < 0.0) {
-            // 鍗曡皟鍨嬶紙鍥?b锛?
-            printf("-------------theta1涓哄崟璋冨瀷\n");
+            // 单调型（图3b）
+            printf("-------------theta1为单调型\n");
             for (auto &p : intervals_1) {
                 printf("[%.4f, %.4f]\n", p.first, p.second);
             }
         } else {
-            // 濂囧紓鍨嬶紙鍥?c/d锛?
-            printf("-------------theta1涓哄寮傚瀷\n");
+            // 奇异型（图3c/d）
+            printf("-------------theta1为奇异型\n");
         }
 
-        //--------------姹?theta2 鍙鑼冨洿----------
+        //--------------求 theta2 可行范围----------
         double A_2 = -A_s(2,1);
         double B_2 = -B_s(2,1);
         double C_2 = -C_s(2,1);
-        // 寮?7 38
+        // 式37 38
 
         double sqrt_val_2 = sqrt(A_2 * A_2 + B_2 * B_2);
 
-        // 娉ㄦ剰锛氬垎姣嶄负 a = A_1锛岄渶鍒ゆ柇鏄惁涓?
+        // 注意：分母为 a = A_1，需判断是否为0
         double psi_minus_2, psi_max_2;
 
-        psi_minus_2 = 2.0 * atan2(-B_2 - sqrt_val_2, A_2);   // 寮?37)
-        psi_max_2  = 2.0 * atan2(-B_2 + sqrt_val_2, A_2);   // 寮?38)
-        printf("-------------theta2涓哄惊鐜瀷\n");
-        printf("theta2 瀵瑰簲姣旇緝鏈€灏忓€间负锛?f, 鏈€澶у€间负:%f \n",psi_minus_2,psi_max_2);
+        psi_minus_2 = 2.0 * atan2(-B_2 - sqrt_val_2, A_2);   // 式(37)
+        psi_max_2  = 2.0 * atan2(-B_2 + sqrt_val_2, A_2);   // 式(38)
+        printf("-------------theta2为循环型\n");
+        printf("theta2 对应比较最小值为：%f, 最大值为:%f \n",psi_minus_2,psi_max_2);
 
 
-        //--------------姹?theta3 鍙鑼冨洿----------
+        //--------------求 theta3 可行范围----------
 
         double A_n_3 =  A_s(2,2);
         double B_n_3 =  B_s(2,2);
@@ -774,38 +774,38 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
 
         double Delta3 = a_t3*a_t3 + b_t3*b_t3 - c_t3*c_t3;
 
-        //纭theta3涓哄惊鐜紙鍏紡28 29锛?double check锛侊紒锛侊紒锛侊紒锛侊紒锛侊紒锛侊紒锛?
+        //确认theta3为循环（公式28 29） double check！！！！！！！！！！！！！
         double sqrtDelta3 = sqrt(Delta3);
         double psi_min3 = 2.0 * atan2(a_t3 - sqrtDelta3, b_t3 - c_t3);
         double psi_max3 = 2.0 * atan2(a_t3 + sqrtDelta3, b_t3 - c_t3);
 
         if (Delta3 > 0.0) {
-            // 寰幆鍨嬶紙鍥?a锛?
-            printf("-------------theta3涓哄惊鐜瀷\n");
-            printf("theta3 瀵瑰簲姣旇緝鏈€灏忓€间负锛?f, 鏈€澶у€间负:%f \n",psi_min3,psi_max3);
+            // 循环型（图3a）
+            printf("-------------theta3为循环型\n");
+            printf("theta3 对应比较最小值为：%f, 最大值为:%f \n",psi_min3,psi_max3);
         } else if (Delta3 < 0.0) {
-            // 鍗曡皟鍨嬶紙鍥?b锛?
-            printf("-------------theta3涓哄崟璋冨瀷\n");
+            // 单调型（图3b）
+            printf("-------------theta3为单调型\n");
         } else {
-            // 濂囧紓鍨嬶紙鍥?c/d锛?
-            printf("-------------theta3涓哄寮傚瀷\n");
+            // 奇异型（图3c/d）
+            printf("-------------theta3为奇异型\n");
         }
     }
 
 
 
-    // 4. 璁＄畻褰撳墠 arm_angle 涓嬬殑 R_0_3
+    // 4. 计算当前 arm_angle 下的 R_0_3
     Eigen::Matrix3d R_0_3 =
         A_s * std::sin(arm_angle)
         + B_s * std::cos(arm_angle)
         + C_s;
 
-    // 5. 浠?R_0_3 鍙嶈В theta_1, theta_2, theta_3
+    // 5. 从 R_0_3 反解 theta_1, theta_2, theta_3
     //
-    // 瀵逛簬锛?
+    // 对于：
     // R_0_3 = Rz(theta_1) * Ry(-theta_2) * Rz(theta_3)
     //
-    // 灞曞紑鍚庢湁锛?
+    // 展开后有：
     // R(0,2) = -cos(theta_1) * sin(theta_2)
     // R(1,2) = -sin(theta_1) * sin(theta_2)
     // R(2,0) =  sin(theta_2) * cos(theta_3)
@@ -817,7 +817,7 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         + R_0_3(2, 1) * R_0_3(2, 1)
     );
 
-    // 涓昏В锛歵heta_2 in [0, pi]
+    // 主解：theta_2 in [0, pi]
     if (sin_theta_2_abs > eps) {
         theta_2 = std::atan2(sin_theta_2_abs, R_0_3(2, 2));
 
@@ -831,17 +831,17 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
             R_0_3(2, 0)
         );
     } else {
-        // 濂囧紓鎯呭喌锛歴in(theta_2) 鎺ヨ繎 0
-        // 姝ゆ椂 theta_1 鍜?theta_3 鑰﹀悎锛屾棤娉曞敮涓€鍒嗗紑銆?
-        // 杩欓噷淇濈暀 theta_3 = 0锛屾妸鎬荤殑 z 鏂瑰悜鏃嬭浆缁?theta_1銆?
+        // 奇异情况：sin(theta_2) 接近 0
+        // 此时 theta_1 和 theta_3 耦合，无法唯一分开。
+        // 这里保留 theta_3 = 0，把总的 z 方向旋转给 theta_1。
         theta_2 = std::atan2(0.0, R_0_3(2, 2));
         theta_3 = 0.0;
 
         if (R_0_3(2, 2) > 0.0) {
-            // theta_2 鈮?0锛屾鏃?R 鈮?Rz(theta_1 + theta_3)
+            // theta_2 ≈ 0，此时 R ≈ Rz(theta_1 + theta_3)
             theta_1 = std::atan2(R_0_3(1, 0), R_0_3(0, 0));
         } else {
-            // theta_2 鈮?pi锛屾鏃朵篃灞炰簬濂囧紓锛岀粰涓€涓彲鐢ㄥ垎瑙?
+            // theta_2 ≈ pi，此时也属于奇异，给一个可用分解
             theta_1 = std::atan2(-R_0_3(1, 0), -R_0_3(0, 0));
         }
     }
@@ -850,40 +850,40 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
     theta_2 = normalizeAngle(theta_2);
     theta_3 = normalizeAngle(theta_3);
     
-    q_out[0] = (theta_1 + M_PI) * 180.0 / M_PI;// + M_PI 涓簅ffset
+    q_out[0] = (theta_1 + M_PI) * 180.0 / M_PI;// + M_PI 为offset
     q_out[1] = theta_2 * 180.0 / M_PI;
-    q_out[2] = (theta_3 + M_PI) * 180.0 / M_PI;// + M_PI 涓簅ffset
+    q_out[2] = (theta_3 + M_PI) * 180.0 / M_PI;// + M_PI 为offset
 
     printf("theta_1 = %f deg\n", q_out[0] );
     printf("theta_2 = %f deg\n", q_out[1] );
     printf("theta_3 = %f deg\n", q_out[2] );
     printf("theta_4 = %f deg\n", q_out[3] );
 
-    // 6. 楠岃瘉涓€涓嬪垎瑙ｈ宸?
+    // 6. 验证一下分解误差
     Eigen::Matrix3d R_0_3_check =
         Rz(theta_1) * Ry_neg(theta_2) * Rz(theta_3);
 
     double R_0_3_err = (R_0_3_check - R_0_3).norm();
 
 
-    // ================= 姹?wrist joints: theta_5, theta_6, theta_7 =================
+    // ================= 求 wrist joints: theta_5, theta_6, theta_7 =================
     //
-    // 浣犵殑鑵曢儴杞村畾涔夛細
+    // 你的腕部轴定义：
     // R_4_7 = Rz(theta_5) * Ry(-theta_6) * Rz(theta_7)
     //
-    // 鍏朵腑绗?6 鍏宠妭鏄粫 y 璐熻酱銆?
+    // 其中第 6 关节是绕 y 负轴。
 
     double theta_5 = 0.0;
     double theta_6 = 0.0;
     double theta_7 = 0.0;
 
     {
-        //-----------------------姹傝В Aw Bw Cw --------------------
+        //-----------------------求解 Aw Bw Cw --------------------
         Eigen::Matrix3d A_w = R_3_4.transpose() * A_s.transpose() *R_0_desire;
         Eigen::Matrix3d B_w = R_3_4.transpose() * B_s.transpose() *R_0_desire;
         Eigen::Matrix3d C_w = R_3_4.transpose() * C_s.transpose() *R_0_desire;
 
-        //---------------------姹?theta5 鐨勫彲琛岃寖鍥?--------------------
+        //---------------------求 theta5 的可行范围---------------------
         double A_n_5 = A_w(1,2);
         double B_n_5 = B_w(1,2);
         double C_n_5 = C_w(1,2);
@@ -891,15 +891,15 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         double B_d_5 = B_w(0,2);
         double C_d_5 = C_w(0,2);
 
-        // 璁＄畻 a_t, b_t, c_t锛堝叕寮?7锛?
+        // 计算 a_t, b_t, c_t（公式27）
         double a_t5 = B_d_5 * C_n_5 - B_n_5 * C_d_5;
         double b_t5 = A_n_5 * C_d_5 - A_d_5 * C_n_5;
         double c_t5 = A_n_5 * B_d_5 - A_d_5 * B_n_5;
 
-        // 鍒ゅ埆寮?
+        // 判别式
         double Delta5 = a_t5*a_t5 + b_t5*b_t5 - c_t5*c_t5;
 
-        //纭 theta5 涓哄崟璋冿紝鎸夌収鍏宠妭鑼冨洿瀵瑰簲鏈€澶ф渶灏?
+        //确认 theta5 为单调，按照关节范围对应最大最小
         double theta_min_5 = -175.0 * M_PI / 180.0;
         double theta_max_5 =  175.0 * M_PI / 180.0;
 
@@ -913,38 +913,38 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         );
 
         if (Delta5 > 0.0) {
-            // 寰幆鍨嬶紙鍥?a锛?
-            printf("-------------theta5涓哄惊鐜瀷\n");
+            // 循环型（图3a）
+            printf("-------------theta5为循环型\n");
 
         } else if (Delta5 < 0.0) {
-            // 鍗曡皟鍨嬶紙鍥?b锛?
-            printf("-------------theta5涓哄崟璋冨瀷\n");
+            // 单调型（图3b）
+            printf("-------------theta5为单调型\n");
             for (auto &p : intervals_5) {
                 printf("[%.4f, %.4f]\n", p.first, p.second);
             }
         } else {
-            // 濂囧紓鍨嬶紙鍥?c/d锛?
-            printf("-------------theta5涓哄寮傚瀷\n");
+            // 奇异型（图3c/d）
+            printf("-------------theta5为奇异型\n");
         }
 
-        //-----------------------姹?theta6 鍙鑼冨洿-------------------
+        //-----------------------求 theta6 可行范围-------------------
             double A_6 = A_s(2,2);
             double B_6 = B_s(2,2);
             double C_6 = C_s(2,2);
-            // 寮?7 38
+            // 式37 38
 
             double sqrt_val_6 = sqrt(A_6 * A_6 + B_6 * B_6);
 
-            // 娉ㄦ剰锛氬垎姣嶄负 a = A_1锛岄渶鍒ゆ柇鏄惁涓?
+            // 注意：分母为 a = A_1，需判断是否为0
             double psi_minus_6, psi_max_6;
 
-            psi_minus_6 = 2.0 * atan2(-B_6 - sqrt_val_6, A_6);   // 寮?37)
-            psi_max_6   = 2.0 * atan2(-B_6 + sqrt_val_6, A_6);   // 寮?38)
-            printf("-------------theta6涓哄惊鐜瀷\n");
-            printf("theta6 瀵瑰簲姣旇緝鏈€灏忓€间负锛?f, 鏈€澶у€间负:%f \n",psi_minus_6,psi_max_6);
+            psi_minus_6 = 2.0 * atan2(-B_6 - sqrt_val_6, A_6);   // 式(37)
+            psi_max_6   = 2.0 * atan2(-B_6 + sqrt_val_6, A_6);   // 式(38)
+            printf("-------------theta6为循环型\n");
+            printf("theta6 对应比较最小值为：%f, 最大值为:%f \n",psi_minus_6,psi_max_6);
 
 
-        //---------------------姹?theta7 鐨勫彲琛岃寖鍥?--------------------
+        //---------------------求 theta7 的可行范围---------------------
         double A_n_7 = A_w(2,1);
         double B_n_7 = B_w(2,1);
         double C_n_7 = C_w(2,1);
@@ -952,40 +952,40 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
         double B_d_7 = -B_w(2,0);
         double C_d_7 = -C_w(2,0);
 
-        // 璁＄畻 a_t, b_t, c_t锛堝叕寮?7锛?
+        // 计算 a_t, b_t, c_t（公式27）
         double a_t7 = B_d_7 * C_n_7 - B_n_7 * C_d_7;
         double b_t7 = A_n_7 * C_d_7 - A_d_7 * C_n_7;
         double c_t7 = A_n_7 * B_d_7 - A_d_7 * B_n_7;
 
-        // 鍒ゅ埆寮?
+        // 判别式
         double Delta7 = a_t7*a_t7 + b_t7*b_t7 - c_t7*c_t7;
 
-        //纭theta3涓哄惊鐜紙鍏紡28 29锛?double check锛侊紒锛侊紒锛侊紒锛侊紒锛侊紒锛侊紒锛?
+        //确认theta3为循环（公式28 29） double check！！！！！！！！！！！！！
         double sqrtDelta7 = sqrt(Delta7);
         double psi_min7 = 2.0 * atan2(a_t7 - sqrtDelta7, b_t7 - c_t7);
         double psi_max7 = 2.0 * atan2(a_t7 + sqrtDelta7, b_t7 - c_t7);
 
         if (Delta7 > 0.0) {
-            // 寰幆鍨嬶紙鍥?a锛?
-            printf("-------------theta7涓哄惊鐜瀷\n");
-            printf("theta7 瀵瑰簲姣旇緝鏈€灏忓€间负锛?f, 鏈€澶у€间负:%f \n",psi_min7,psi_max7);
+            // 循环型（图3a）
+            printf("-------------theta7为循环型\n");
+            printf("theta7 对应比较最小值为：%f, 最大值为:%f \n",psi_min7,psi_max7);
         } else if (Delta7 < 0.0) {
-            // 鍗曡皟鍨嬶紙鍥?b锛?
-            printf("-------------theta7涓哄崟璋冨瀷\n");
+            // 单调型（图3b）
+            printf("-------------theta7为单调型\n");
         } else {
-            // 濂囧紓鍨嬶紙鍥?c/d锛?
-            printf("-------------theta7涓哄寮傚瀷\n");
+            // 奇异型（图3c/d）
+            printf("-------------theta7为奇异型\n");
         }
     }
 
 
-    // R_0_desire 鏄洰鏍囨湯绔棆杞煩闃碉紝涔熷氨鏄?^0R_7^d
-    // R_0_3 鏄綘鍓嶉潰閫氳繃 arm_angle 绠楀嚭鏉ョ殑 ^0R_3
-    // R_3_4 鏄綘鐢?theta_4 绠楀嚭鏉ョ殑 ^3R_4
+    // R_0_desire 是目标末端旋转矩阵，也就是 ^0R_7^d
+    // R_0_3 是你前面通过 arm_angle 算出来的 ^0R_3
+    // R_3_4 是你由 theta_4 算出来的 ^3R_4
     Eigen::Matrix3d R_4_7 =
         R_3_4.transpose() * R_0_3.transpose() * R_0_desire;
 
-    // 瀵逛簬 R_4_7 = Rz(theta5) * Ry(-theta6) * Rz(theta7)
+    // 对于 R_4_7 = Rz(theta5) * Ry(-theta6) * Rz(theta7)
     //
     // R_4_7(0,2) = -cos(theta5) * sin(theta6)
     // R_4_7(1,2) = -sin(theta5) * sin(theta6)
@@ -1011,22 +1011,22 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
             R_4_7(2, 0)
         );
     } else {
-        // 濂囧紓鎯呭喌锛歵heta_6 鎺ヨ繎 0 鎴?pi
-        // 姝ゆ椂 theta_5 鍜?theta_7 鑰﹀悎锛屼笉鑳藉敮涓€鍒嗗紑銆?
-        // 甯哥敤澶勭悊锛氫护 theta_7 = 0锛屾妸鎬绘棆杞粰 theta_5銆?
+        // 奇异情况：theta_6 接近 0 或 pi
+        // 此时 theta_5 和 theta_7 耦合，不能唯一分开。
+        // 常用处理：令 theta_7 = 0，把总旋转给 theta_5。
         theta_7 = 0.0;
 
         if (R_4_7(2, 2) > 0.0) {
-            // theta_6 鈮?0
+            // theta_6 ≈ 0
             theta_6 = 0.0;
 
-            // R 鈮?Rz(theta_5 + theta_7)
+            // R ≈ Rz(theta_5 + theta_7)
             theta_5 = std::atan2(R_4_7(1, 0), R_4_7(0, 0));
         } else {
-            // theta_6 鈮?pi
+            // theta_6 ≈ pi
             theta_6 = M_PI;
 
-            // 杩欓噷缁欎竴涓彲鐢ㄥ垎瑙?
+            // 这里给一个可用分解
             theta_5 = std::atan2(-R_4_7(1, 0), -R_4_7(0, 0));
         }
     }
@@ -1035,15 +1035,15 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
     theta_6 = normalizeAngle(theta_6);
     theta_7 = normalizeAngle(theta_7);
 
-    q_out[4] = (theta_5 + M_PI ) * 180.0 / M_PI;// + M_PI 涓簅ffset
+    q_out[4] = (theta_5 + M_PI ) * 180.0 / M_PI;// + M_PI 为offset
     q_out[5] = theta_6 * 180.0 / M_PI;
-    q_out[6] = (theta_7 + M_PI)* 180.0 / M_PI;// + M_PI 涓簅ffset
+    q_out[6] = (theta_7 + M_PI)* 180.0 / M_PI;// + M_PI 为offset
 
     printf("theta_5 = %f deg\n", q_out[4] );
     printf("theta_6 = %f deg\n", q_out[5] );
     printf("theta_7 = %f deg\n", q_out[6] );
 
-    // 楠岃瘉
+    // 验证
     Eigen::Matrix3d R_4_7_check =
         Rz(theta_5) * Ry_neg(theta_6) * Rz(theta_7);
 
@@ -1054,11 +1054,15 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
 
 }
 
+
+
+
 // ============================================================
 // 以下为从 tsinghua_paper.py 移植的几何求解版本 (函数以 _py 结尾)
 // ============================================================
 
 // 余弦定理求 theta4 (py: _solve_theta4_from_triangle)
+//
 static double solve_theta4_from_triangle_py(const Eigen::Vector3d& S, const Eigen::Vector3d& W)
 {
     double l_sw = (W - S).norm();
@@ -1090,6 +1094,7 @@ static void compute_swe_from_target_py(
     S << 0.0, 0.0, d1_val;
 
     q4_abs = solve_theta4_from_triangle_py(S, W);
+    printf("============py 版本的臂角数据为：%f \n",q4_abs*180/M_PI);
 
     Eigen::Vector3d v_sw = W - S;
     double n_sw = v_sw.norm();
@@ -1425,10 +1430,10 @@ static double score_solution(const double q[7],const double q_init[7],
 
 
 /**
- * @param T_target 鐩爣浣嶅Э
- * @param q_init 褰撳墠瑙掑害锛坉egree锛?
- * @param psi 褰撳墠鑷傝锛坮ad锛?
- * @param q_out 瑙掑害锛坉egree锛?
+ * @param T_target 目标位姿
+ * @param q_init 当前角度（degree）
+ * @param psi 当前臂角（rad）
+ * @param q_out 角度（degree）
  * 
  */
 void analytical_ik_paper(const double T_target[4][4], const double q_init[7], double psi, double q_out[7]){
@@ -1436,22 +1441,22 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
 
     Eigen::Matrix3d R_0_desire;
     Eigen::Vector3d P_0_desire;
-    //鑾峰彇base涓嬬殑SW鍧愭爣,鍙婂叾鍗曚綅鍚戦噺
-    Eigen::Vector3d x_0_sw; // 鍦?base frame涓?鑾峰彇sw鍚戦噺
-    Eigen::Vector3d u_0_sw;//x_sw_0 鐨勫崟浣嶅悜閲?
+    //获取base下的SW坐标,及其单位向量
+    Eigen::Vector3d x_0_sw; // 在 base frame中 获取sw向量
+    Eigen::Vector3d u_0_sw;//x_sw_0 的单位向量
     double q_input[7];
     memcpy(q_input,q_init,7*sizeof(double));
 
-    getPoseFromArray(T_target,R_0_desire,P_0_desire);//鑾峰彇鐩爣浣嶅Э鐨刾osi rot
+    getPoseFromArray(T_target,R_0_desire,P_0_desire);//获取目标位姿的posi rot
     Eigen::Vector3d l_0_bs(0,0,dh[0][2]);
     Eigen::Vector3d l_7_wt(0,0,sqrt(pow(dh[6][2],2) + pow(dh[5][2],2)));
     x_0_sw = P_0_desire - l_0_bs - R_0_desire *l_7_wt;
-    printf("x_0_sw鐨勪綅缃负: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
+    printf("x_0_sw的位置为: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
 
-    //鍦ㄦ鍏堟楠屼竴閬?濂囧紓
+    //在此先检验一遍 奇异
     sigualrity_type is_singular = check_near_singularity(q_input,x_0_sw);
     if(is_singular<0){
-        printf("------------------------鍦╯ingular闄勮繎------------------------- \n");
+        printf("------------------------在singular附近------------------------- \n");
     }
     
     double norm_x_0_sw = x_0_sw.norm();
@@ -1461,20 +1466,20 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
         u_0_sw.setZero();  
     }
 
-    //==============瑙?theta 4=========== checked
+    //==============解 theta 4=========== checked
     double cos_theta4 = (pow(norm_x_0_sw,2) - pow(dh[2][2],2) - pow(dh[4][2],2)) / ( 2* dh[2][2] * dh[4][2]);
     
     if (cos_theta4 < -1.0) cos_theta4 = -1.0;
     if (cos_theta4 > 1.0) cos_theta4 = 1.0;
     double theta_4 = -std::acos(cos_theta4);
-    printf("------------绗洓涓叧鑺傝搴︿负锛?f \n",theta_4*180/M_PI);
-    q_out[3] = - theta_4 * 180.0 / M_PI;//璐熷彿涓簅ffset
+    printf("------------第四个关节角度为：%f \n",theta_4*180/M_PI);
+    q_out[3] = - theta_4 * 180.0 / M_PI;//负号为offset
 
-    // ===== 鏋勯€?R_3_4 (theta_4 宸叉眰鍑猴紝鎻愬埌鍓嶉潰渚涘悗闈㈠鐢? =====
+    // ===== 构造 R_3_4 (theta_4 已求出，提到前面供后面复用) =====
     double c4 = std::cos(theta_4);
     double s4 = std::sin(theta_4);
 
-    //鏆傛椂涓嶄娇鐢╢k璁＄畻锛堝潗鏍囩郴涓嶄竴鏍凤級锛岀敱浜?j4鏄粫鐫€ base frame 鐨?-y杞存棆杞殑锛屾寜鐓ф棆杞负锛?
+    //暂时不使用fk计算（坐标系不一样），由于 j4是绕着 base frame 的 -y轴旋转的，按照旋转为：
     Eigen::Matrix3d R_3_4;
     R_3_4 <<  c4, 0.0, -s4,
             0.0, 1.0, 0.0,
@@ -1486,7 +1491,7 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
         while (angle < -M_PI) angle += 2.0 * M_PI;
         return angle;
     };
-    //绗?涓酱鏄粫base frame 鐨?z
+    //第1个轴是绕base frame 的 z
     auto Rz = [](double theta) {
         double c = std::cos(theta);
         double s = std::sin(theta);
@@ -1496,7 +1501,7 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
              0.0, 0.0, 1.0;
         return R;
     };
-    //绗簩涓酱鏄粫base frame 鐨?-y
+    //第二个轴是绕base frame 的 -y
     auto Ry_neg = [](double theta) {
         double c = std::cos(theta);
         double s = std::sin(theta);
@@ -1508,13 +1513,13 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
     };
     const double eps = 1e-9;
 
-    //姹傚綋鑷傝涓?鏃跺€欑殑theta_1_ref plane 鍜宼heta_1_ref plane 瀵瑰簲鍏紡 14
+    //求当臂角为0时候的theta_1_ref plane 和theta_1_ref plane 对应公式 14
     double theta_1_ref = 0.0;
     double theta_2_ref = 0.0;
 
-    // ================= 姹?theta_1_ref, theta_2_ref =================
+    // ================= 求 theta_1_ref, theta_2_ref =================
     //
-    // 鐩爣褰㈠紡锛?
+    // 目标形式：
     // x_0_sw = Rz(theta_1_ref) * Ry(-theta_2_ref) * p
     //
     // p = R_2_3(theta3 = 0) * (l_3_se + R_3_4(theta4) * l_4_ew)
@@ -1522,14 +1527,14 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
     Eigen::Vector3d l_3_se(0.0, 0.0, dh[2][2]);
     Eigen::Vector3d l_4_ew(0.0, 0.0, dh[4][2]);
 
-    // 宸茬煡鍚戦噺 p
+    // 已知向量 p
     Eigen::Vector3d p = R_2_3_theta3_zero * (l_3_se + R_3_4 * l_4_ew);
 
-    // 鐜板湪瑙ｏ細x_0_sw = Rz(theta_1_ref) * Ry(-theta_2_ref) * p
-    // [ c1路c2,  -s1,  -c1路s2 ]                                   
-    // [ s1路c2,   c1,  -s1路s2 ]                                   
+    // 现在解：x_0_sw = Rz(theta_1_ref) * Ry(-theta_2_ref) * p
+    // [ c1·c2,  -s1,  -c1·s2 ]                                   
+    // [ s1·c2,   c1,  -s1·s2 ]                                   
     // [ s2,       0,     c2   ]   
-    //鏈変袱涓湭鐭ユ暟锛?缁勬柟绋嬨€傜洿鎺ヨВ鑰︽眰瑙?
+    //有两个未知数，3组方程。直接解耦求解
 
     const double eps_1 = 1e-12;
 
@@ -1544,7 +1549,7 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
     const double r = std::sqrt(px * px + pz * pz);
 
     if (r < eps_1) {
-        printf("姹?theta_2_ref 澶辫触锛歱 鍦?y 杞撮檮杩戯紝鍑虹幇濂囧紓銆俓n");
+        printf("求 theta_2_ref 失败：p 在 y 轴附近，出现奇异。\n");
     } else {
         double cos_arg = z / r;
 
@@ -1586,7 +1591,7 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
         theta_1_candidate_2 = normalizeAngle(theta_1_candidate_2);
         theta_2_candidate_2 = normalizeAngle(theta_2_candidate_2);
 
-        // 鐢ㄦ杩愬姩瀛︽畫宸€変竴涓洿鍖归厤鐨勮В
+        // 用正运动学残差选一个更匹配的解
         Eigen::Vector3d x_check_1 =
             Rz(theta_1_candidate_1) * Ry_neg(theta_2_candidate_1) * p;
 
@@ -1617,49 +1622,49 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
         printf("selected theta_1_ref: %f deg\n", theta_1_ref * 180.0 / M_PI);
         printf("selected theta_2_ref: %f deg\n", theta_2_ref * 180.0 / M_PI);
     }
-    // ================= 鏍规嵁 arm_angle 姹?theta_1, theta_2, theta_3 =================
+    // ================= 根据 arm_angle 求 theta_1, theta_2, theta_3 =================
     //
-    // 杩欓噷鍋囪鑲╅儴鍓嶄笁涓棆杞负锛?
+    // 这里假设肩部前三个旋转为：
     // R_0_1 = Rz(theta_1)
     // R_1_2 = Ry(-theta_2)
     // R_2_3 = Rz(theta_3)
     //
-    // 鎵€浠ワ細
+    // 所以：
     // R_0_3 = Rz(theta_1) * Ry(-theta_2) * Rz(theta_3)
 
     double theta_1 = 0.0;
     double theta_2 = 0.0;
     double theta_3 = 0.0;
 
-    // 1. 鍏堟瀯閫?arm_angle = 0 鏃剁殑鍙傝€?R_0_3_ref
+    // 1. 先构造 arm_angle = 0 时的参考 R_0_3_ref
     // theta_3_ref = 0
     Eigen::Matrix3d R_0_3_ref =
         Rz(theta_1_ref) * Ry_neg(theta_2_ref) * Rz(0.0);
 
-    // 2. 鏋勯€?[u_0_sw x] 鍙嶅绉扮煩闃?
+    // 2. 构造 [u_0_sw x] 反对称矩阵
     Eigen::Matrix3d u_cross;
     u_cross << 0.0,        -u_0_sw(2),  u_0_sw(1),
             u_0_sw(2),   0.0,       -u_0_sw(0),
             -u_0_sw(1),   u_0_sw(0),  0.0;
 
-    // 3. 鏍规嵁璁烘枃鍏紡鏋勯€?A_s, B_s, C_s
+    // 3. 根据论文公式构造 A_s, B_s, C_s
     Eigen::Matrix3d A_s = u_cross * R_0_3_ref;
     Eigen::Matrix3d B_s = -u_cross * u_cross * R_0_3_ref;
     Eigen::Matrix3d C_s = (u_0_sw * u_0_sw.transpose()) * R_0_3_ref;
 
 
-    // 4. 璁＄畻褰撳墠 arm_angle 涓嬬殑 R_0_3
+    // 4. 计算当前 arm_angle 下的 R_0_3
     Eigen::Matrix3d R_0_3 =
         A_s * std::sin(arm_angle)
         + B_s * std::cos(arm_angle)
         + C_s;
 
-    // 5. 浠?R_0_3 鍙嶈В theta_1, theta_2, theta_3
+    // 5. 从 R_0_3 反解 theta_1, theta_2, theta_3
     //
-    // 瀵逛簬锛?
+    // 对于：
     // R_0_3 = Rz(theta_1) * Ry(-theta_2) * Rz(theta_3)
     //
-    // 灞曞紑鍚庢湁锛?
+    // 展开后有：
     // R(0,2) = -cos(theta_1) * sin(theta_2)
     // R(1,2) = -sin(theta_1) * sin(theta_2)
     // R(2,0) =  sin(theta_2) * cos(theta_3)
@@ -1671,7 +1676,7 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
         + R_0_3(2, 1) * R_0_3(2, 1)
     );
 
-    // 涓昏В锛歵heta_2 in [0, pi]
+    // 主解：theta_2 in [0, pi]
     if (sin_theta_2_abs > eps) {
         theta_2 = std::atan2(sin_theta_2_abs, R_0_3(2, 2));
 
@@ -1685,17 +1690,17 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
             R_0_3(2, 0)
         );
     } else {
-        // 濂囧紓鎯呭喌锛歴in(theta_2) 鎺ヨ繎 0
-        // 姝ゆ椂 theta_1 鍜?theta_3 鑰﹀悎锛屾棤娉曞敮涓€鍒嗗紑銆?
-        // 杩欓噷淇濈暀 theta_3 = 0锛屾妸鎬荤殑 z 鏂瑰悜鏃嬭浆缁?theta_1銆?
+        // 奇异情况：sin(theta_2) 接近 0
+        // 此时 theta_1 和 theta_3 耦合，无法唯一分开。
+        // 这里保留 theta_3 = 0，把总的 z 方向旋转给 theta_1。
         theta_2 = std::atan2(0.0, R_0_3(2, 2));
         theta_3 = 0.0;
 
         if (R_0_3(2, 2) > 0.0) {
-            // theta_2 鈮?0锛屾鏃?R 鈮?Rz(theta_1 + theta_3)
+            // theta_2 ≈ 0，此时 R ≈ Rz(theta_1 + theta_3)
             theta_1 = std::atan2(R_0_3(1, 0), R_0_3(0, 0));
         } else {
-            // theta_2 鈮?pi锛屾鏃朵篃灞炰簬濂囧紓锛岀粰涓€涓彲鐢ㄥ垎瑙?
+            // theta_2 ≈ pi，此时也属于奇异，给一个可用分解
             theta_1 = std::atan2(-R_0_3(1, 0), -R_0_3(0, 0));
         }
     }
@@ -1704,40 +1709,40 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
     theta_2 = normalizeAngle(theta_2);
     theta_3 = normalizeAngle(theta_3);
     
-    q_out[0] = (theta_1 + M_PI) * 180.0 / M_PI;// + M_PI 涓簅ffset
+    q_out[0] = (theta_1 + M_PI) * 180.0 / M_PI;// + M_PI 为offset
     q_out[1] = theta_2 * 180.0 / M_PI;
-    q_out[2] = (theta_3 + M_PI) * 180.0 / M_PI;// + M_PI 涓簅ffset
+    q_out[2] = (theta_3 + M_PI) * 180.0 / M_PI;// + M_PI 为offset
 
     printf("theta_1 = %f deg\n", q_out[0] );
     printf("theta_2 = %f deg\n", q_out[1] );
     printf("theta_3 = %f deg\n", q_out[2] );
     printf("theta_4 = %f deg\n", q_out[3] );
 
-    // 6. 楠岃瘉涓€涓嬪垎瑙ｈ宸?
+    // 6. 验证一下分解误差
     Eigen::Matrix3d R_0_3_check =
         Rz(theta_1) * Ry_neg(theta_2) * Rz(theta_3);
 
     double R_0_3_err = (R_0_3_check - R_0_3).norm();
 
 
-    // ================= 姹?wrist joints: theta_5, theta_6, theta_7 =================
+    // ================= 求 wrist joints: theta_5, theta_6, theta_7 =================
     //
-    // 浣犵殑鑵曢儴杞村畾涔夛細
+    // 你的腕部轴定义：
     // R_4_7 = Rz(theta_5) * Ry(-theta_6) * Rz(theta_7)
     //
-    // 鍏朵腑绗?6 鍏宠妭鏄粫 y 璐熻酱銆?
+    // 其中第 6 关节是绕 y 负轴。
 
     double theta_5 = 0.0;
     double theta_6 = 0.0;
     double theta_7 = 0.0;
 
-    // R_0_desire 鏄洰鏍囨湯绔棆杞煩闃碉紝涔熷氨鏄?^0R_7^d
-    // R_0_3 鏄綘鍓嶉潰閫氳繃 arm_angle 绠楀嚭鏉ョ殑 ^0R_3
-    // R_3_4 鏄綘鐢?theta_4 绠楀嚭鏉ョ殑 ^3R_4
+    // R_0_desire 是目标末端旋转矩阵，也就是 ^0R_7^d
+    // R_0_3 是你前面通过 arm_angle 算出来的 ^0R_3
+    // R_3_4 是你由 theta_4 算出来的 ^3R_4
     Eigen::Matrix3d R_4_7 =
         R_3_4.transpose() * R_0_3.transpose() * R_0_desire;
 
-    // 瀵逛簬 R_4_7 = Rz(theta5) * Ry(-theta6) * Rz(theta7)
+    // 对于 R_4_7 = Rz(theta5) * Ry(-theta6) * Rz(theta7)
     //
     // R_4_7(0,2) = -cos(theta5) * sin(theta6)
     // R_4_7(1,2) = -sin(theta5) * sin(theta6)
@@ -1763,22 +1768,22 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
             R_4_7(2, 0)
         );
     } else {
-        // 濂囧紓鎯呭喌锛歵heta_6 鎺ヨ繎 0 鎴?pi
-        // 姝ゆ椂 theta_5 鍜?theta_7 鑰﹀悎锛屼笉鑳藉敮涓€鍒嗗紑銆?
-        // 甯哥敤澶勭悊锛氫护 theta_7 = 0锛屾妸鎬绘棆杞粰 theta_5銆?
+        // 奇异情况：theta_6 接近 0 或 pi
+        // 此时 theta_5 和 theta_7 耦合，不能唯一分开。
+        // 常用处理：令 theta_7 = 0，把总旋转给 theta_5。
         theta_7 = 0.0;
 
         if (R_4_7(2, 2) > 0.0) {
-            // theta_6 鈮?0
+            // theta_6 ≈ 0
             theta_6 = 0.0;
 
-            // R 鈮?Rz(theta_5 + theta_7)
+            // R ≈ Rz(theta_5 + theta_7)
             theta_5 = std::atan2(R_4_7(1, 0), R_4_7(0, 0));
         } else {
-            // theta_6 鈮?pi
+            // theta_6 ≈ pi
             theta_6 = M_PI;
 
-            // 杩欓噷缁欎竴涓彲鐢ㄥ垎瑙?
+            // 这里给一个可用分解
             theta_5 = std::atan2(-R_4_7(1, 0), -R_4_7(0, 0));
         }
     }
@@ -1787,15 +1792,15 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
     theta_6 = normalizeAngle(theta_6);
     theta_7 = normalizeAngle(theta_7);
 
-    q_out[4] = (theta_5 + M_PI ) * 180.0 / M_PI;// + M_PI 涓簅ffset
+    q_out[4] = (theta_5 + M_PI ) * 180.0 / M_PI;// + M_PI 为offset
     q_out[5] = theta_6 * 180.0 / M_PI;
-    q_out[6] = (theta_7 + M_PI)* 180.0 / M_PI;// + M_PI 涓簅ffset
+    q_out[6] = (theta_7 + M_PI)* 180.0 / M_PI;// + M_PI 为offset
 
     printf("theta_5 = %f deg\n", q_out[4] );
     printf("theta_6 = %f deg\n", q_out[5] );
     printf("theta_7 = %f deg\n", q_out[6] );
 
-    // 楠岃瘉
+    // 验证
     Eigen::Matrix3d R_4_7_check =
         Rz(theta_5) * Ry_neg(theta_6) * Rz(theta_7);
 
@@ -1859,16 +1864,16 @@ static double golden_section_1d(double lo, double hi, double tol,
     return eval_psi(psi_best, T_target, q_init, q_prev, q_best);
 }
 
-// 瀵瑰鎺ュ彛锛氫笌 select_optimal_ik 鐩稿悓绛惧悕
+// 对外接口：与 select_optimal_ik 相同签名
 int select_optimal_ik_golden(const double T_target[4][4],
                              const double q_init[N_JOINTS],
                              const double q_prev[N_JOINTS],
                              double q_best[N_JOINTS]) {
-    const double search_radius = 5.0 * (M_PI / 180.0);   // 卤5掳
-    const double tol = 0.005 * (M_PI / 180.0);            // ~0.005掳
+    const double search_radius = 5.0 * (M_PI / 180.0);   // ±5°
+    const double tol = 0.005 * (M_PI / 180.0);            // ~0.005°
 
     double psi_center = arm_plane_angle(q_init);
-    printf("[榛勯噾鍒嗗壊] 褰撳墠鑷傝: %.3f掳\n", psi_center * 180.0 / M_PI);
+    printf("[黄金分割] 当前臂角: %.3f°\n", psi_center * 180.0 / M_PI);
 
     double best_score = INFINITY;
     int found = 0;
@@ -1883,7 +1888,7 @@ int select_optimal_ik_golden(const double T_target[4][4],
         double hi = std::min(iv[k][1], psi_center + search_radius);
         if (hi - lo < tol) continue;
 
-        printf("[榛勯噾鍒嗗壊] 鍖洪棿%d [%.2f掳, %.2f掳] 鎼滅储涓?..\n",
+        printf("[黄金分割] 区间%d [%.2f°, %.2f°] 搜索中...\n",
                k, lo * 180.0 / M_PI, hi * 180.0 / M_PI);
 
         double psi_best_k;
@@ -1892,7 +1897,7 @@ int select_optimal_ik_golden(const double T_target[4][4],
                                            T_target, q_init, q_prev,
                                            q_k, psi_best_k);
 
-        printf("[榛勯噾鍒嗗壊] 鍖洪棿%d 鏈€浼樿噦瑙? %.4f掳, 寰楀垎: %.3f\n",
+        printf("[黄金分割] 区间%d 最优臂角: %.4f°, 得分: %.3f\n",
                k, psi_best_k * 180.0 / M_PI, score_k);
 
         if (score_k < best_score) {
@@ -1925,12 +1930,11 @@ int select_optimal_ik(const double T_target[4][4],
     int found = 0;
 
     double psi_center = arm_plane_angle(q_init);
-    printf("*******************鐞嗘兂閲囨牱鑷傝涓猴細%f \n",psi_center*180/M_PI);
-
+    printf("*******************理想采样臂角为：%f \n",psi_center*180/M_PI);
     for (int i = 0; i < 15; i++) {
         double psi_sample = psi_center + (-7 + i) * step;  // 7鐐瑰绉伴噰鏍?
         double psi = clampArmAngle(psi_sample);//闄愬埗鑷傝
-        printf("*******************閲囨牱鑷傝涓猴細%f \n",psi*180/M_PI);
+        printf("*******************采样臂角为：%f \n",psi*180/M_PI);
         double q_cand[N_JOINTS];
         analytical_ik_paper(T_target, q_init, psi, q_cand);
 
@@ -1964,6 +1968,7 @@ int main(){
         {0.9979517244, -0.01984192549, -0.06081655896, 316.4981235},
         {0, 0, 0, 1}};
     double joint_init[7] = {52, 65, 42, 51, 62, 50.5, 85};
+    double joint_outcome[7] = {50, 60, 40, 50, 60, 50, 80};
 
     printf("================================================\n");
     printf("  CPP 原始版 (golden section) VS PY 移植版 (暴力扫描)\n");

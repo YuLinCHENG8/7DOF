@@ -53,6 +53,160 @@ void getPoseFromArray(const double T[4][4], Eigen::Matrix3d& R, Eigen::Vector3d&
     p << T[0][3], T[1][3], T[2][3];
 }
 
+// 角度差归一化到 [-180°, 180°]，处理 atan2 分支切割引起的 2π 跳变
+static inline double unwrap_delta(double q, double q_ref) {
+    double dq = q - q_ref;
+    while (dq >  180.0) dq -= 360.0;
+    while (dq < -180.0) dq += 360.0;
+    return dq;
+}
+
+
+
+// 区间求交集工具
+static vector<pair<double,double>> intersect(
+    const vector<pair<double,double>>& a,
+    const vector<pair<double,double>>& b)
+{
+    vector<pair<double,double>> res;
+    for (auto& x : a)
+        for (auto& y : b) {
+            double lo = std::max(x.first, y.first);
+            double hi = std::min(x.second, y.second);
+            if (hi > lo + 1e-9) res.push_back({lo, hi});
+        }
+    return res;
+}
+
+// 全范围 [-pi, pi)
+static vector<pair<double,double>> full_range() {
+    return {{-M_PI, M_PI}};
+}
+
+// atan2型关节的可行区间
+// theta(psi) = atan2(An*sin+Bn*cos+Cn, Ad*sin+Bd*cos+Cd)
+// Delta = at^2 + bt^2 - ct^2
+//   Delta>0: 循环型，theta可遍历全范围，不施加约束 → 返回full_range
+//   Delta<0: 单调型，用theta_min/max反解psi边界
+//   Delta=0: 奇异型，暂返回full_range（保守处理）
+static vector<pair<double,double>> atan2_joint_interval(
+    double An, double Bn, double Cn,
+    double Ad, double Bd, double Cd,
+    double theta_min, double theta_max)
+{
+    double at = Bd*Cn - Bn*Cd;
+    double bt = An*Cd - Ad*Cn;
+    double ct = An*Bd - Ad*Bn;
+    double Delta = at*at + bt*bt - ct*ct;
+
+    if (Delta >= 0.0) return full_range(); // 循环型或奇异型
+
+    // 单调型：确定方向（在psi=0处导数符号）
+    bool increasing = (bt + ct > 0.0);
+
+    // 对给定 theta_target，解 psi：atan2(num,den)=theta_t
+    // 条件: num*cos(t) - den*sin(t) = 0，即 A*sin+B*cos+C=0
+    auto solve_psi = [&](double theta_t) -> double {
+        double ct = cos(theta_t), st = sin(theta_t);
+        double A = An*ct - Ad*st;
+        double B = Bn*ct - Bd*st;
+        double C = Cn*ct - Cd*st;
+        double r = sqrt(A*A + B*B);
+        if (std::abs(C) > r + 1e-9) return NAN;
+        double phi = atan2(B, A);
+        double sv = std::clamp(-C/r, -1.0, 1.0);
+        double alpha = asin(sv);
+        double p1 = alpha - phi;
+        double p2 = M_PI - alpha - phi;
+        auto wrap = [](double v) {
+            while (v < -M_PI) v += 2*M_PI;
+            while (v >= M_PI) v -= 2*M_PI;
+            return v;
+        };
+        p1 = wrap(p1); p2 = wrap(p2);
+        // 用 atan2 验证，避免 tan 的 π 周期歧义
+        auto check = [&](double psi) {
+            double num = An*sin(psi)+Bn*cos(psi)+Cn;
+            double den = Ad*sin(psi)+Bd*cos(psi)+Cd;
+            double th = atan2(num, den);
+            double diff = std::abs(th - theta_t);
+            return diff < 1e-6 || std::abs(diff - 2*M_PI) < 1e-6;
+        };
+        if (check(p1)) return p1;
+        if (check(p2)) return p2;
+        return p1;
+    };
+
+    double psi_L = solve_psi(theta_min);
+    double psi_U = solve_psi(theta_max);
+    if (std::isnan(psi_L) || std::isnan(psi_U)) return full_range();
+
+    double psi_start = increasing ? psi_L : psi_U;
+    double psi_end   = increasing ? psi_U : psi_L;
+
+    if (psi_start <= psi_end)
+        return {{psi_start, psi_end}};
+    else
+        return {{psi_start, M_PI}, {-M_PI, psi_end}};
+}
+
+// acos型关节：theta(psi) = acos(A*cos+B*sin+C)，theta in [0,pi]
+// 极值点(theta最小/最大)对应的psi: 式(37)(38)
+// 返回theta在[theta_min, theta_max]内可行的psi区间
+static vector<pair<double,double>> acos_joint_interval(
+    double A, double B, double C,
+    double theta_min, double theta_max)
+{
+    // theta(psi) = acos(f(psi)), f(psi) = A*cos + B*sin + C
+    // f 的值域: [f_min, f_max] = [C-r, C+r]
+    double r = sqrt(A*A + B*B);
+    double f_min = C - r;
+    double f_max = C + r;
+
+    // 关节限位对应的 f 边界（acos 单调递减：theta大→f小）
+    double f_lo = cos(theta_max); // theta_max → f 下界
+    double f_hi = cos(theta_min); // theta_min → f 上界
+
+    // ---- 情况1：不可行（f 值域与限位要求完全不相交）----
+    if (f_max < f_lo - 1e-9 || f_min > f_hi + 1e-9) return {};
+
+    // ---- 情况2：循环型（f 值域完全在限位范围内，所有 psi 均可行）----
+    // 对应 atan2 型的 Delta >= 0 情况
+    if (f_min >= f_lo - 1e-9 && f_max <= f_hi + 1e-9) return full_range();
+
+    // ---- 情况3：单调型（部分重叠，需反解 psi 边界）----
+    double f_lo_eff = std::max(f_min, f_lo);
+    double f_hi_eff = std::min(f_max, f_hi);
+
+    double phi = atan2(B, A); // f(psi) 取最大值处的 psi
+    // f >= f_lo_eff: |psi - phi| <= half_lo
+    double half_lo = acos(std::clamp((f_lo_eff - C)/r, -1.0, 1.0));
+    // f <= f_hi_eff: |psi - phi| >= half_hi
+    double half_hi = acos(std::clamp((f_hi_eff - C)/r, -1.0, 1.0));
+
+    auto wrap = [](double v) {
+        while (v >= M_PI) v -= 2*M_PI;
+        while (v < -M_PI) v += 2*M_PI;
+        return v;
+    };
+    vector<pair<double,double>> res;
+    auto add = [&](double lo, double hi) {
+        lo = wrap(lo); hi = wrap(hi);
+        if (lo <= hi) res.push_back({lo, hi});
+        else { res.push_back({lo, M_PI}); res.push_back({-M_PI, hi}); }
+    };
+    // 可行区间: [phi-half_lo, phi-half_hi] ∪ [phi+half_hi, phi+half_lo]
+    if (half_hi < half_lo - 1e-9) {
+        add(phi - half_lo, phi - half_hi);
+        add(phi + half_hi, phi + half_lo);
+    } else {
+        add(phi - half_lo, phi + half_lo);
+    }
+    return res;
+}
+
+
+
 
 // 计算两个齐次变换矩阵的差异
 void compareTransforms(const double T1[4][4], const double T2[4][4]) {
@@ -121,156 +275,6 @@ void fK_eigen(const double joint_angles[7], Eigen::Matrix3d& R, Eigen::Vector3d&
     forward_kinematics(joint_angles, T, joint);
     getPoseFromArray(T, R, p);
 }
-
-
-double arm_plane_angle_test(const double q[7]) {
-    Eigen::Matrix3d R,R_0_4,R_0_4_ref;
-    Eigen::Vector3d E, E_ref;
-
-    fK_eigen(q, R_0_4, E, 4);  // elbow 
-
-    double q0[7];
-    for (int i = 0; i < 7; i++) q0[i] = q[i];
-    q0[2] = 0.0;           // theta_3 = 0
-    fK_eigen(q0, R_0_4_ref, E_ref, 4); // elbow ref (不随 theta_3 变化)
-
-    //--------------先计算 R_0_arm_angle
-    Eigen::Matrix3d R_0_arm_angle;
-    R_0_arm_angle = R_0_4 * R_0_4_ref.transpose();
-
-    //------------计算 x_0_sw，借鉴下面ik的计算逻辑
-    Eigen::Matrix3d R_0_desire;
-    Eigen::Vector3d P_0_desire;
-    //获取base下的SW坐标,及其单位向量
-    Eigen::Vector3d x_0_sw; // 在 base frame中 获取sw向量
-    Eigen::Vector3d u_0_sw;//x_sw_0 的单位向量
-    double T_target[4][4] = {};
-    forward_kinematics(q,T_target,7);
-
-    getPoseFromArray(T_target,R_0_desire,P_0_desire);//获取目标位姿的posi rot
-    Eigen::Vector3d l_0_bs(0,0,dh[0][2]);
-    Eigen::Vector3d l_7_wt(0,0,sqrt(pow(dh[6][2],2) + pow(dh[5][2],2)));
-    x_0_sw = P_0_desire - l_0_bs - R_0_desire *l_7_wt;
-    printf("x_0_sw的位置为: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
-    
-    double norm_x_0_sw = x_0_sw.norm();
-    if (norm_x_0_sw > 1e-12) {
-        u_0_sw = x_0_sw / norm_x_0_sw;
-    } else {
-        u_0_sw.setZero();  
-    }
-    double cos_psi = 0.5 * (R_0_arm_angle.trace() - 1.0);
-
-    if (cos_psi > 1.0) cos_psi = 1.0;
-    if (cos_psi < -1.0) cos_psi = -1.0;
-
-    Eigen::Vector3d vee;
-    vee << R_0_arm_angle(2, 1) - R_0_arm_angle(1, 2),
-           R_0_arm_angle(0, 2) - R_0_arm_angle(2, 0),
-           R_0_arm_angle(1, 0) - R_0_arm_angle(0, 1);
-
-    double sin_psi = 0.5 * u_0_sw.dot(vee);
-
-    double arm_angle = std::atan2(sin_psi, cos_psi);
-
-    printf("arm_angle = %f rad, %f deg\n",
-           arm_angle,
-           arm_angle * 180.0 / M_PI);
-
-    return arm_angle;
-}
-
-void analytical_ik_test(const double T_target[4][4]/* , const double q_init[7], double psi, double q_out[7] */){
-
-    double arm_angle = 0;
-
-    Eigen::Matrix3d R_0_desire;
-    Eigen::Vector3d P_0_desire;
-    //获取base下的SW坐标,及其单位向量
-    Eigen::Vector3d x_0_sw; // 在 base frame中 获取sw向量
-    Eigen::Vector3d u_0_sw;//x_sw_0 的单位向量
-
-    getPoseFromArray(T_target,R_0_desire,P_0_desire);//获取目标位姿的posi rot
-    Eigen::Vector3d l_0_bs(0,0,dh[0][2]);
-    Eigen::Vector3d l_7_wt(0,0,sqrt(pow(dh[6][2],2) + pow(dh[5][2],2)));
-    x_0_sw = P_0_desire - l_0_bs - R_0_desire *l_7_wt;
-    printf("x_0_sw的位置为: %f,%f,%f\n",x_0_sw(0),x_0_sw(1),x_0_sw(2));
-    
-    double norm_x_0_sw = x_0_sw.norm();
-    if (norm_x_0_sw > 1e-12) {
-        u_0_sw = x_0_sw / norm_x_0_sw;
-    } else {
-        u_0_sw.setZero();  
-    }
-
-    //==============解 theta 4=========== checked
-    double cos_theta4 = (pow(norm_x_0_sw,2) - pow(dh[2][2],2) - pow(dh[4][2],2)) / ( 2* dh[2][2] * dh[4][2]);
-    
-    if (cos_theta4 < -1.0) cos_theta4 = -1.0;
-    if (cos_theta4 > 1.0) cos_theta4 = 1.0;
-    double theta_4 = -std::acos(cos_theta4);
-    printf("------------第四个关节角度为：%f \n",theta_4*180/M_PI);
-
-    //通过罗德里格斯变换求出R_0_3，进而求出 theta0 - theta3
-    Eigen::Matrix3d I3 = Eigen::Matrix3d::Identity();
-    Eigen::Matrix3d ux = skew(u_0_sw);
-    Eigen::Matrix3d R_0_armangle =I3 + std::sin(arm_angle) * ux + (1.0 - std::cos(arm_angle)) * ux * ux;
-    double theta_1[2] = {};//+ -
-    double theta_2[2] = {};// + -
-    double theta_3[2] = {};// + -
-    double theta_5[2] = {};
-    double theta_6[2] = {};
-    double theta_7[2] = {};
-    double cos_theta2 = - R_0_armangle(2,1);
-    theta_2[0] = acos(cos_theta2);
-    theta_2[1] = -acos(cos_theta2);
-    Eigen::Matrix3d R_4_7[2];
-    Eigen::Matrix3d R_0_4[2];
-    Eigen::Vector3d posi_temp[2];
-    for(int i = 0;i<2;i++){
-        double s2 = sin(theta_2[i]);
-        if (std::abs(s2) < 1e-6) {
-            theta_1[i] = atan2(-R_0_armangle(1,1), -R_0_armangle(0,1));
-            theta_3[i] = 0.0;
-        } else {
-            theta_1[i] = atan2(-R_0_armangle(1,1)/s2, -R_0_armangle(0,1)/s2);
-            theta_3[i] = atan2(-R_0_armangle(2,2)/s2, -R_0_armangle(2,0)/s2);
-        }
-
-        double joint_angle[7] = {theta_1[i],theta_2[i],theta_3[i],theta_4,0,0,0};
-        double T_0_4[4][4] = {};
-        forward_kinematics(joint_angle,T_0_4,4);
-        getPoseFromArray(T_0_4,R_0_4[i],posi_temp[i]);
-        R_4_7[i] = R_0_4[i].transpose() * R_0_desire;
-        double r13 = R_4_7[i](0, 2);
-        double r23 = R_4_7[i](1, 2);
-        double r31 = R_4_7[i](2, 0);
-        double r32 = R_4_7[i](2, 1);
-        double r33 = R_4_7[i](2, 2);
-
-
-
-        theta_6[0] = acos(-r33);
-        theta_6[1] = -acos(-r33);
-
-        theta_5[i] = std::atan2(r23/sin(theta_6[i]), r13/sin(theta_6[i]));
-
-        theta_7[i] = std::atan2(r32/sin(theta_6[i]), -r31/sin(theta_6[i]));
-        printf("第 %d 组解的theta_1为:%f, theta_2为:%f, theta_3为:%f,theta_4为:%f, theta_5为:%f, theta_6为:%f , theta_7为:%f\n",
-            i+1 ,theta_1[i]*180/M_PI, theta_2[i]*180/M_PI, theta_3[i]*180/M_PI,theta_4*180/M_PI,
-            theta_5[i]*180/M_PI, theta_6[i]*180/M_PI, theta_7[i]*180/M_PI);
-
-
-    }
-    
-
-
-    
-
-    
-
-}
-
 
 
 /**
@@ -1143,6 +1147,160 @@ static double score_solution(const double q[7],const double q_init[7],
     return score;
 }
 
+// 主函数：给定目标位姿，计算臂角可行区间
+// 返回可行区间列表（已是各关节约束的交集）
+vector<pair<double,double>> compute_arm_angle_intervals(const double T_target[4][4])
+{
+    Eigen::Matrix3d R_0_d;
+    Eigen::Vector3d P_0_d;
+    getPoseFromArray(T_target, R_0_d, P_0_d);
+
+    Eigen::Vector3d l_bs(0, 0, dh[0][2]);
+    Eigen::Vector3d l_wt(0, 0, sqrt(dh[6][2]*dh[6][2] + dh[5][2]*dh[5][2]));
+    Eigen::Vector3d x_sw = P_0_d - l_bs - R_0_d * l_wt;
+
+    double norm_sw = x_sw.norm();
+    Eigen::Vector3d u_sw = Eigen::Vector3d::Zero();
+    if (norm_sw > 1e-12) u_sw = x_sw / norm_sw;
+
+    // theta4（与psi无关）
+    double cos4 = (norm_sw*norm_sw - dh[2][2]*dh[2][2] - dh[4][2]*dh[4][2])
+                  / (2.0 * dh[2][2] * dh[4][2]);
+    cos4 = std::clamp(cos4, -1.0, 1.0);
+    double theta_4 = -acos(cos4); // 默认取负分支，与主IK一致
+    printf("theta_4 = %.4f deg\n", theta_4*180/M_PI);
+
+    // R_3_4
+    double c4 = cos(theta_4), s4 = sin(theta_4);
+    Eigen::Matrix3d R_3_4;
+    R_3_4 << c4, 0, -s4,  0, 1, 0,  s4, 0, c4;
+
+    // 求 theta_1_ref, theta_2_ref（psi=0 参考位形）
+    Eigen::Vector3d l_se(0, 0, dh[2][2]);
+    Eigen::Vector3d l_ew(0, 0, dh[4][2]);
+    Eigen::Vector3d p_ref = l_se + R_3_4 * l_ew; // R_2_3=I
+
+    double px = p_ref(0), py = p_ref(1), pz = p_ref(2);
+    double x = x_sw(0), y = x_sw(1), z = x_sw(2);
+    double r = sqrt(px*px + pz*pz);
+
+    double theta_1_ref = 0, theta_2_ref = 0;
+    if (r > 1e-12) {
+        double alpha = atan2(px, pz);
+        double beta  = acos(std::clamp(z/r, -1.0, 1.0));
+
+        auto try_cand = [&](double t2) -> pair<double,double> {
+            double c2 = cos(t2), s2 = sin(t2);
+            double a = c2*px - s2*pz;
+            double t1 = atan2(y, x) - atan2(py, a);
+            while (t1 > M_PI) t1 -= 2*M_PI;
+            while (t1 <-M_PI) t1 += 2*M_PI;
+            return {t1, t2};
+        };
+
+        auto [t1a, t2a] = try_cand(alpha + beta);
+        auto [t1b, t2b] = try_cand(alpha - beta);
+
+        // 用FK残差选
+        auto Rz = [](double th) -> Eigen::Matrix3d {
+            Eigen::Matrix3d R; double c=cos(th),s=sin(th);
+            R << c,-s,0, s,c,0, 0,0,1; return R;
+        };
+        auto Ry_neg = [](double th) -> Eigen::Matrix3d {
+            Eigen::Matrix3d R; double c=cos(th),s=sin(th);
+            R << c,0,-s, 0,1,0, s,0,c; return R;
+        };
+        double ea = (Rz(t1a)*Ry_neg(t2a)*p_ref - x_sw).norm();
+        double eb = (Rz(t1b)*Ry_neg(t2b)*p_ref - x_sw).norm();
+        if (ea <= eb) { theta_1_ref = t1a; theta_2_ref = t2a; }
+        else          { theta_1_ref = t1b; theta_2_ref = t2b; }
+    }
+
+    // 构造 A_s, B_s, C_s（肩部）
+    Eigen::Matrix3d u_cross;
+    u_cross << 0, -u_sw(2), u_sw(1),
+               u_sw(2), 0, -u_sw(0),
+              -u_sw(1), u_sw(0), 0;
+    auto Rz_l = [](double th) -> Eigen::Matrix3d {
+        Eigen::Matrix3d R; double c=cos(th),s=sin(th);
+        R << c,-s,0, s,c,0, 0,0,1; return R;
+    };
+    auto Ry_neg_l = [](double th) -> Eigen::Matrix3d {
+        Eigen::Matrix3d R; double c=cos(th),s=sin(th);
+        R << c,0,-s, 0,1,0, s,0,c; return R;
+    };
+    Eigen::Matrix3d R_0_3_ref = Rz_l(theta_1_ref) * Ry_neg_l(theta_2_ref);
+    Eigen::Matrix3d A_s = u_cross * R_0_3_ref;
+    Eigen::Matrix3d B_s = -u_cross * u_cross * R_0_3_ref;
+    Eigen::Matrix3d C_s = (u_sw * u_sw.transpose()) * R_0_3_ref;
+
+    // 腕部矩阵
+    Eigen::Matrix3d A_w = R_3_4.transpose() * A_s.transpose() * R_0_d;
+    Eigen::Matrix3d B_w = R_3_4.transpose() * B_s.transpose() * R_0_d;
+    Eigen::Matrix3d C_w = R_3_4.transpose() * C_s.transpose() * R_0_d;
+
+    const double th_min = Q_MIN[0]; // ±175° in rad，所有关节相同
+    const double th_max = Q_MAX[0];
+
+    // ---- theta1: atan2(-R_0_3(1,2), -R_0_3(0,2)) → atan2型 ----
+    auto iv1 = atan2_joint_interval(
+        -A_s(1,2), -B_s(1,2), -C_s(1,2),
+        -A_s(0,2), -B_s(0,2), -C_s(0,2),
+        th_min, th_max);
+
+    // ---- theta2: acos(R_0_3(2,2)) = acos(A_s(2,2)*sin+B_s(2,2)*cos+C_s(2,2)) ----
+    // R_0_3(2,2) = cos(theta2)，theta2 in [0,pi] → theta_min=0, theta_max=pi 与关节限位取min
+    auto iv2 = acos_joint_interval(
+        B_s(2,2), A_s(2,2), C_s(2,2), // cos型：A*cos+B*sin+C → swap A,B for acos helper
+        std::max(th_min, 0.0), std::min(th_max, M_PI));
+
+    // ---- theta3: atan2(-R(2,1)/s2, R(2,0)/s2) → atan2型 ----
+    auto iv3 = atan2_joint_interval(
+        -A_s(2,1), -B_s(2,1), -C_s(2,1),
+         A_s(2,0),  B_s(2,0),  C_s(2,0),
+        th_min, th_max);
+
+    // ---- theta5: atan2(-R_4_7(1,2)/-R_4_7(0,2)) → atan2型 ----
+    auto iv5 = atan2_joint_interval(
+        -A_w(1,2), -B_w(1,2), -C_w(1,2),
+        -A_w(0,2), -B_w(0,2), -C_w(0,2),
+        th_min, th_max);
+
+    // ---- theta6: acos(R_4_7(2,2)) ----
+    auto iv6 = acos_joint_interval(
+        B_w(2,2), A_w(2,2), C_w(2,2),
+        std::max(th_min, 0.0), std::min(th_max, M_PI));
+
+    // ---- theta7: atan2(-R_4_7(2,1), R_4_7(2,0)) → atan2型 ----
+    auto iv7 = atan2_joint_interval(
+        -A_w(2,1), -B_w(2,1), -C_w(2,1),
+         A_w(2,0),  B_w(2,0),  C_w(2,0),
+        th_min, th_max);
+
+    auto print_iv = [](const char* name, const char* type,
+                       const vector<pair<double,double>>& iv) {
+        printf("  %-8s [%s] %zu segment(s):", name, type, iv.size());
+        if (iv.empty()) printf("  EMPTY (joint unreachable)");
+        for (auto& s : iv)
+            printf("  [%7.2f, %7.2f] deg", s.first*180/M_PI, s.second*180/M_PI);
+        printf("\n");
+    };
+    printf("\n===== 各关节ψ可行区间 =====\n");
+    print_iv("theta1", "atan2", iv1);
+    print_iv("theta2", "acos ", iv2);
+    print_iv("theta3", "atan2", iv3);
+    print_iv("theta4", "const", {});  // 常数，不参与约束
+    print_iv("theta5", "atan2", iv5);
+    print_iv("theta6", "acos ", iv6);
+    print_iv("theta7", "atan2", iv7);
+
+    // 求所有关节约束的交集
+    auto res = full_range();
+    for (auto* iv : {&iv1, &iv2, &iv3, &iv5, &iv6, &iv7})
+        res = intersect(res, *iv);
+
+    return res;
+}
 
 
 /**
@@ -1187,19 +1345,12 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
     
     if (cos_theta4 < -1.0) cos_theta4 = -1.0;
     if (cos_theta4 > 1.0) cos_theta4 = 1.0;
-    //臂角有两个选择，通过输入的值来判定为正负
-    double theta_4 = 0.0;
-    if(q_init[3]>0){
-        theta_4 = fabs(std::acos(cos_theta4));
-    }
-    else if(q_init[3]>0){
-        theta_4 = -fabs(std::acos(cos_theta4));
-    }
-    else{//奇异点附近
-        printf("肘关节在奇异点附近\n");
-        theta_4 =q_init[3];
-    }
-    
+    double acos_val = std::acos(cos_theta4);
+    // q_out[3] = -theta_4 * 180/pi，所以 theta_4=-acos → q_out[3]=+|v|，theta_4=+acos → q_out[3]=-|v|
+    double q4_cand_pos =  acos_val * 180.0 / M_PI;  // theta_4 = -acos → q_out[3] 为正
+    double q4_cand_neg = -acos_val * 180.0 / M_PI;  // theta_4 = +acos → q_out[3] 为负
+    double theta_4 = (std::abs(unwrap_delta(q4_cand_pos, q_input[3])) <= std::abs(unwrap_delta(q4_cand_neg, q_input[3])))
+                     ? -acos_val : acos_val;
     printf("------------第四个关节角度为：%f \n",theta_4*180/M_PI);
     q_out[3] = - theta_4 * 180.0 / M_PI;//负号为offset
 
@@ -1380,12 +1531,23 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
     Eigen::Matrix3d B_s = -u_cross * u_cross * R_0_3_ref;
     Eigen::Matrix3d C_s = (u_0_sw * u_0_sw.transpose()) * R_0_3_ref;
 
+    // 腕部矩阵
+    Eigen::Matrix3d A_w = R_3_4.transpose() * A_s.transpose() * R_0_desire;
+    Eigen::Matrix3d B_w = R_3_4.transpose() * B_s.transpose() * R_0_desire;
+    Eigen::Matrix3d C_w = R_3_4.transpose() * C_s.transpose() * R_0_desire;
 
     // 4. 计算当前 arm_angle 下的 R_0_3
     Eigen::Matrix3d R_0_3 =
         A_s * std::sin(arm_angle)
         + B_s * std::cos(arm_angle)
         + C_s;
+    
+
+    // R_0_desire 是目标末端旋转矩阵，也就是 ^0R_7^d
+    // R_0_3 是你前面通过 arm_angle 算出来的 ^0R_3
+    // R_3_4 是你由 theta_4 算出来的 ^3R_4
+    Eigen::Matrix3d R_4_7 =
+        R_3_4.transpose() * R_0_3.transpose() * R_0_desire;
 
     // 5. 从 R_0_3 反解 theta_1, theta_2, theta_3
     //
@@ -1464,12 +1626,7 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
     double theta_6 = 0.0;
     double theta_7 = 0.0;
 
-    // R_0_desire 是目标末端旋转矩阵，也就是 ^0R_7^d
-    // R_0_3 是你前面通过 arm_angle 算出来的 ^0R_3
-    // R_3_4 是你由 theta_4 算出来的 ^3R_4
-    Eigen::Matrix3d R_4_7 =
-        R_3_4.transpose() * R_0_3.transpose() * R_0_desire;
-
+    
     // 对于 R_4_7 = Rz(theta5) * Ry(-theta6) * Rz(theta7)
     //
     // R_4_7(0,2) = -cos(theta5) * sin(theta6)

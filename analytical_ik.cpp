@@ -514,6 +514,8 @@ void analytical_ik_paper_with_arm_angle_cal(const double T_target[4][4]/* , cons
     if (cos_theta4 < -1.0) cos_theta4 = -1.0;
     if (cos_theta4 > 1.0) cos_theta4 = 1.0;
     double theta_4 = -std::acos(cos_theta4);
+    //臂角有两个选择，通过输入的值来判定为正负
+
     printf("------------第四个关节角度为：%f \n",theta_4*180/M_PI);
     q_out[3] = - theta_4 * 180.0 / M_PI;//负号为offset
 
@@ -1187,19 +1189,7 @@ void analytical_ik_paper(const double T_target[4][4], const double q_init[7], do
     
     if (cos_theta4 < -1.0) cos_theta4 = -1.0;
     if (cos_theta4 > 1.0) cos_theta4 = 1.0;
-    //臂角有两个选择，通过输入的值来判定为正负
-    double theta_4 = 0.0;
-    if(q_init[3]>0){
-        theta_4 = fabs(std::acos(cos_theta4));
-    }
-    else if(q_init[3]>0){
-        theta_4 = -fabs(std::acos(cos_theta4));
-    }
-    else{//奇异点附近
-        printf("肘关节在奇异点附近\n");
-        theta_4 =q_init[3];
-    }
-    
+    double theta_4 = -std::acos(cos_theta4);
     printf("------------第四个关节角度为：%f \n",theta_4*180/M_PI);
     q_out[3] = - theta_4 * 180.0 / M_PI;//负号为offset
 

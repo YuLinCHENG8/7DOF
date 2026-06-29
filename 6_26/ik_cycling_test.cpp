@@ -1146,7 +1146,7 @@ static inline double unwrap_delta(double q, double q_ref) {
  */
 static double score_solution(const double q[7], const double q_init[7],
                               const double q_prev[7]) {
-    const double w_dq   = 1.0;
+    const double w_dq   = 3.0;
     const double w_vel  = 0.5;
     const double w_sing = 5.0;
 
@@ -1898,6 +1898,6 @@ int main() {
         }
     }
 }
-//编译： g++ -std=c++17 ik_cycling_test.cpp r7_fk_lib.cpp -o ik_cycling_test -I/usr/include/eigen3
+//编译： g++ -std=c++17 ik_cycling_test.cpp ../r7_fk_lib.cpp -o ik_cycling_test -I/usr/include/eigen3
 
 //综上所述，存在的臂角区间为：【0.000000  0.9021】U[1.1019   2.646297] 
