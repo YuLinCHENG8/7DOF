@@ -76,99 +76,199 @@ static vector<pair<double,double>> full_range() {
     return {{-M_PI, M_PI}};
 }
 
+static double wrap_pi(double v) {
+    while (v < -M_PI) v += 2.0 * M_PI;
+    while (v >= M_PI) v -= 2.0 * M_PI;
+    return v;
+}
+
+static double angle_dist(double a, double b) {
+    return std::abs(wrap_pi(a - b));
+}
+
+static double eval_theta_atan2(
+    double An, double Bn, double Cn,
+    double Ad, double Bd, double Cd,
+    double psi)
+{
+    double num = An * std::sin(psi) + Bn * std::cos(psi) + Cn;
+    double den = Ad * std::sin(psi) + Bd * std::cos(psi) + Cd;
+    return std::atan2(num, den);
+}
+
+static std::vector<std::pair<double,double>> complement_arc(
+    double center, double tol)
+{
+    center = wrap_pi(center);
+    double left  = wrap_pi(center - tol);
+    double right = wrap_pi(center + tol);
+
+    if (tol <= 0.0) return {{-M_PI, M_PI}};
+
+    if (left <= right) {
+        return {{-M_PI, left}, {right, M_PI}};
+    } else {
+        // 禁区跨越了 ±pi，剩余是一段
+        return {{right, left}};
+    }
+}
+
+static double solve_psi_for_theta(
+    double An, double Bn, double Cn,
+    double Ad, double Bd, double Cd,
+    double theta_target,
+    double hint_psi,
+    double eps = 1e-9)
+{
+    double ct = std::cos(theta_target), st = std::sin(theta_target);
+    double A = An * ct - Ad * st;
+    double B = Bn * ct - Bd * st;
+    double C = Cn * ct - Cd * st;
+
+    double r = std::sqrt(A * A + B * B);
+    if (r < eps) return std::numeric_limits<double>::quiet_NaN();
+    if (std::abs(C) > r + eps) return std::numeric_limits<double>::quiet_NaN();
+
+    double phi = std::atan2(B, A);
+    double sv = std::clamp(-C / r, -1.0, 1.0);
+    double alpha = std::asin(sv);
+
+    double p1 = wrap_pi(alpha - phi);
+    double p2 = wrap_pi(M_PI - alpha - phi);
+
+    auto check = [&](double psi) {
+        double th = eval_theta_atan2(An, Bn, Cn, Ad, Bd, Cd, psi);
+        return angle_dist(th, theta_target) < 1e-6;
+    };
+
+    bool ok1 = check(p1);
+    bool ok2 = check(p2);
+
+    if (ok1 && ok2) {
+        return angle_dist(p1, hint_psi) <= angle_dist(p2, hint_psi) ? p1 : p2;
+    }
+    if (ok1) return p1;
+    if (ok2) return p2;
+    return std::numeric_limits<double>::quiet_NaN();
+}
+
+
+
 // atan2型关节的可行区间
 // theta(psi) = atan2(An*sin+Bn*cos+Cn, Ad*sin+Bd*cos+Cd)
 // Delta = at^2 + bt^2 - ct^2
 //   Delta>0: 循环型，theta可遍历全范围，不施加约束 → 返回full_range
 //   Delta<0: 单调型，用theta_min/max反解psi边界
 //   Delta=0: 奇异型，暂返回full_range（保守处理）
-static vector<pair<double,double>> atan2_joint_interval(
+static std::vector<std::pair<double,double>> atan2_joint_interval(
     double An, double Bn, double Cn,
     double Ad, double Bd, double Cd,
-    double theta_min, double theta_max)
+    double theta_min, double theta_max,
+    double singularity_margin = 0.0)
 {
-    double at = Bd*Cn - Bn*Cd;
-    double bt = An*Cd - Ad*Cn;
-    double ct = An*Bd - Ad*Bn;
-    double Delta = at*at + bt*bt - ct*ct;
+    constexpr double eps = 1e-9;
 
-    
+    theta_min = wrap_pi(theta_min);
+    theta_max = wrap_pi(theta_max);
 
-    if(Delta > 0.0){//循环型直接计算上下限
-        double disc = at * at + bt * bt - ct * ct;
+    double at = Bd * Cn - Bn * Cd;
+    double bt = An * Cd - Ad * Cn;
+    double ct = An * Bd - Ad * Bn;
+    double Delta = at * at + bt * bt - ct * ct;
 
-        // 数值保护：避免由于浮点误差出现负数开方
-        disc = std::max(0.0, disc);
-
-        double s = std::sqrt(disc);
-
-        // 论文公式(28):
-        // psi0_minus = 2 * atan((a_t - sqrt(disc)) / (b_t - c_t))
-
-        double lower_limit = 2.0 * std::atan2(at - s, bt - ct);
-        double upper_limit = 2.0 * std::atan2(at + s, bt - ct);
-        return {{lower_limit, upper_limit}};
-    
+    if (std::abs(Delta) < eps) {
+        double psi_sing = wrap_pi(2.0 * std::atan2(at, bt - ct));
+        return complement_arc(psi_sing, singularity_margin);
     }
 
-    if (Delta == 0.0) { // 奇异型
-        //在奇异位需要排除一些角度, 论文（32）
-        double avoid_angle = 2.0 * std::atan2(at , bt - ct);
-        double angle_tolerance = 10 * M_PI /180;
-        return {{-M_PI, avoid_angle - angle_tolerance}, {avoid_angle + angle_tolerance, M_PI}};
-    }
+    if (Delta < 0.0) {
+        double psi_a = 0.0;
+        double psi_b = 1.0;
 
+        double th_a = eval_theta_atan2(An, Bn, Cn, Ad, Bd, Cd, psi_a);
+        double th_b = eval_theta_atan2(An, Bn, Cn, Ad, Bd, Cd, psi_b);
+        bool increasing = wrap_pi(th_b - th_a) > 0.0;
 
-    // 单调型：确定方向（在psi=0处导数符号）
-    bool increasing = (bt + ct > 0.0);
+        double psi_L = solve_psi_for_theta(
+            An, Bn, Cn, Ad, Bd, Cd,
+            theta_min, 0.0, eps);
 
-    // 对给定 theta_target，解 psi：atan2(num,den)=theta_t
-    // 条件: num*cos(t) - den*sin(t) = 0，即 A*sin+B*cos+C=0
-    auto solve_psi = [&](double theta_t) -> double {
-        double ct = cos(theta_t), st = sin(theta_t);
-        double A = An*ct - Ad*st;
-        double B = Bn*ct - Bd*st;
-        double C = Cn*ct - Cd*st;
-        double r = sqrt(A*A + B*B);
-        if (std::abs(C) > r + 1e-9) return NAN;
-        double phi = atan2(B, A);
-        double sv = std::clamp(-C/r, -1.0, 1.0);
-        double alpha = asin(sv);
-        double p1 = alpha - phi;
-        double p2 = M_PI - alpha - phi;
-        auto wrap = [](double v) {
-            while (v < -M_PI) v += 2*M_PI;
-            while (v >= M_PI) v -= 2*M_PI;
-            return v;
-        };
-        p1 = wrap(p1); p2 = wrap(p2);
-        // 用 atan2 验证，避免 tan 的 π 周期歧义
-        auto check = [&](double psi) {
-            double num = An*sin(psi)+Bn*cos(psi)+Cn;
-            double den = Ad*sin(psi)+Bd*cos(psi)+Cd;
-            double th = atan2(num, den);
-            double diff = std::abs(th - theta_t);
-            return diff < 1e-6 || std::abs(diff - 2*M_PI) < 1e-6;
-        };
-        if (check(p1)) return p1;
-        if (check(p2)) return p2;
-        return p1;
-    };
+        double psi_U = solve_psi_for_theta(
+            An, Bn, Cn, Ad, Bd, Cd,
+            theta_max, 0.0, eps);
 
-    double psi_L = solve_psi(theta_min);
-    double psi_U = solve_psi(theta_max);
-    if (std::isnan(psi_L) || std::isnan(psi_U)) return full_range();
+        if (std::isnan(psi_L) || std::isnan(psi_U)) {
+            return {};
+        }
 
-    double psi_start = increasing ? psi_L : psi_U;
-    double psi_end   = increasing ? psi_U : psi_L;
+        double psi_start = increasing ? psi_L : psi_U;
+        double psi_end   = increasing ? psi_U : psi_L;
 
-    if (psi_start <= psi_end)
-        return {{psi_start, psi_end}};
-    else
+        if (psi_start <= psi_end) {
+            return {{psi_start, psi_end}};
+        }
         return {{psi_start, M_PI}, {-M_PI, psi_end}};
+    }
+
+    double s = std::sqrt(std::max(0.0, Delta));
+    double psi_lo = wrap_pi(2.0 * std::atan2(at - s, bt - ct));
+    double psi_hi = wrap_pi(2.0 * std::atan2(at + s, bt - ct));
+
+    double theta_lo = eval_theta_atan2(An, Bn, Cn, Ad, Bd, Cd, psi_lo);
+    double theta_hi = eval_theta_atan2(An, Bn, Cn, Ad, Bd, Cd, psi_hi);
+
+    if (theta_lo > theta_hi) {
+        std::swap(theta_lo, theta_hi);
+        std::swap(psi_lo, psi_hi);
+    }
+
+    if (theta_max < theta_lo - eps || theta_min > theta_hi + eps) {
+        return {};
+    }
+
+    if (theta_min <= theta_lo + eps && theta_max >= theta_hi - eps) {
+        return {{-M_PI, M_PI}};
+    }
+
+    if (theta_min <= theta_lo + eps) {
+        double p1 = solve_psi_for_theta(
+            An, Bn, Cn, Ad, Bd, Cd, theta_max, psi_hi, eps);
+        if (std::isnan(p1)) return {};
+        return {{-M_PI, p1}};
+    }
+
+    if (theta_max >= theta_hi - eps) {
+        double p1 = solve_psi_for_theta(
+            An, Bn, Cn, Ad, Bd, Cd, theta_min, psi_lo, eps);
+        if (std::isnan(p1)) return {};
+        return {{p1, M_PI}};
+    }
+
+    double pL1 = solve_psi_for_theta(
+        An, Bn, Cn, Ad, Bd, Cd, theta_min, psi_lo, eps);
+    double pL2 = solve_psi_for_theta(
+        An, Bn, Cn, Ad, Bd, Cd, theta_min, psi_hi, eps);
+    double pU1 = solve_psi_for_theta(
+        An, Bn, Cn, Ad, Bd, Cd, theta_max, psi_lo, eps);
+    double pU2 = solve_psi_for_theta(
+        An, Bn, Cn, Ad, Bd, Cd, theta_max, psi_hi, eps);
+
+    if (std::isnan(pL1) || std::isnan(pL2) || std::isnan(pU1) || std::isnan(pU2)) {
+        return {};
+    }
+
+    double seg1_a = std::min(pL1, pU1);
+    double seg1_b = std::max(pL1, pU1);
+    double seg2_a = std::min(pL2, pU2);
+    double seg2_b = std::max(pL2, pU2);
+
+    std::vector<std::pair<double,double>> out;
+    out.push_back({seg1_a, seg1_b});
+    if (angle_dist(seg2_a, seg1_a) > 1e-6 || angle_dist(seg2_b, seg1_b) > 1e-6) {
+        out.push_back({seg2_a, seg2_b});
+    }
+    return out;
 }
-
-
 
 // acos型关节：theta(psi) = acos(A*cos+B*sin+C)，theta in [0,pi]
 // 极值点(theta最小/最大)对应的psi: 式(37)(38)
@@ -2046,10 +2146,11 @@ int main() {
         //这个区间太大了，下一步需要判断当前臂角区间，并只在此区间优化
         double cur_arm_angle = arm_plane_angle(q_input);
         pair<double,double> current_psi_interval{};
-        for(size_t i = 0;i<INTERVALS.size();++i){
-            auto& interval = INTERVALS[i];
-            if(cur_arm_angle >= interval.first && cur_arm_angle <= interval.second){
+        for (const auto& interval : INTERVALS) {
+            if (cur_arm_angle >= interval.first - 1e-9 &&
+                cur_arm_angle <= interval.second + 1e-9) {
                 current_psi_interval = interval;
+                break;
             }
         }
         
